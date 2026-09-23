@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Inter_Tight } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const inter = Inter({
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <div className="relative mx-auto flex h-dvh w-full max-w-md flex-col bg-wayber-lime/40 sm:my-6 sm:h-[calc(100dvh-3rem)] sm:rounded-3xl sm:shadow-2xl sm:overflow-hidden">
           {children}
         </div>
+        <Analytics />
       </body>
     </html>
   );

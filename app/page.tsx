@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { track } from "@vercel/analytics";
 import Header from "@/components/Header";
 import ChatBubble from "@/components/ChatBubble";
 import ResultsCard from "@/components/ResultsCard";
@@ -84,6 +85,7 @@ export default function Home() {
   function handleStart() {
     setPhase("address");
     addMessage({ role: "assistant", text: ADDRESS_PROMPT });
+    track("Started");
   }
 
   function handleAddressSubmit(e: React.FormEvent) {
@@ -121,6 +123,7 @@ export default function Home() {
     setConfirmResult(null);
     setPhase("details");
     addMessage({ role: "assistant", text: DETAILS_PROMPT });
+    track("Address Confirmed");
 
     fetch("/api/leads", {
       method: "POST",
@@ -167,6 +170,7 @@ export default function Home() {
     setPhase("photo");
     setPhotoIndex(0);
     addMessage({ role: "assistant", text: PHOTO_STEPS[0].askText });
+    track("Details Submitted");
 
     if (leadIdRef.current) {
       fetch(`/api/leads/${leadIdRef.current}`, {
@@ -221,6 +225,7 @@ export default function Home() {
         },
       ];
       setObservations(newObservations);
+      track("Photo Step Completed", { step: step.label, index: photoIndex });
 
       if (leadIdRef.current) {
         fetch(`/api/leads/${leadIdRef.current}/photos`, {
@@ -264,6 +269,7 @@ export default function Home() {
         setEstimate(estData);
         setPhase("done");
         setBusy(false);
+        track("Estimate Completed");
 
         if (leadIdRef.current) {
           fetch(`/api/leads/${leadIdRef.current}`, {

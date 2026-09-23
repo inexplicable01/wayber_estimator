@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.109",
+    "@vercel/analytics": "^2.0.1",
     "ai": "^7.0.106",
     "mysql2": "^3.24.4",
     "next": "16.3.5",
