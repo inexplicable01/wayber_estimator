@@ -1,0 +1,111 @@
+# Project: Wayber Home Estimate (working name)
+
+## What this is
+A standalone, conversational AI application that walks a homeowner
+through capturing their property with their phone camera and produces
+a comparative market estimate (a "comp" — comparison against recent
+nearby sales).
+
+This is a NEW project with its OWN codebase/repo — separate from the
+existing `wayber_erp` real estate CRM. It does NOT need to feel
+separate to the end user: it should be branded as Wayber (same visual
+design system, logo, colors), ideally on a subdomain like
+`estimate.wayber.net`, with a clear link back to the main Wayber site.
+Think "part of the Wayber family," not a disconnected side project —
+that's a branding/UX goal, not an architecture constraint. Deep
+integration (shared login, pushing results into a Wayber transaction
+record) is explicitly OUT of scope for this MVP — see below.
+
+## Why this MVP exists (read this before making scope calls)
+The immediate goal is NOT a production-ready estimate tool. It's a
+demo to a small (~100-person), engaged Instagram audience (built via
+Facebook ads) for brand-building — the goal is "this felt genuinely
+cool, I want to show someone." That changes what matters:
+
+- The interaction quality (the AI reacting specifically and
+  intelligently to a photo — "nice, is that quartz counters?") is the
+  entire point. That's the shareable moment. Polish THIS above
+  everything else.
+- The estimate's actual accuracy matters much less right now. With
+  ~100 known users trying it once each, it is explicitly fine to fake
+  or hand-curate the boring/hard-to-source parts (comps data) rather
+  than solving real data licensing before the demo.
+- Speed of response and a good-looking, fast, mobile-first chat/photo
+  UI matters more than feature completeness.
+
+Do not over-invest in comp-data accuracy, Zestimate/Redfin
+integration, or scale/production concerns for this pass. Optimize for
+"a small number of real people have a delightful 3-minute experience
+and screen-record it."
+
+## Core user flow (MVP)
+1. User opens the app on their phone (mobile-first, plain responsive
+   web — no need for a native app or PWA install for v1).
+2. Conversational entry: app asks for the property address.
+3. App asks for a short, FIXED sequence of photos (not dynamic
+   "what's missing" detection — that's a v2 feature):
+   - Front exterior
+   - Kitchen
+   - Primary bathroom
+   - One more room/feature of the user's choice
+   Use a plain file input with `capture="environment"` so it opens
+   the phone camera directly — no custom camera UI needed for v1.
+4. After each photo, the AI responds conversationally and
+   specifically about what it sees (materials, condition, notable
+   features) — this reaction is the core "wow" moment, invest real
+   effort in prompt quality here.
+5. Once all photos are in, generate an estimate range with a short,
+   plain-language explanation ("based on 3 nearby comparable sales
+   and what we saw in your photos, condition trending above average
+   because of X and Y").
+6. Results screen: estimate range + reasoning + comps shown + a clear
+   button/link back to the main Wayber site (`/sell` flow). No
+   account creation or login required to use this app in v1.
+
+## Functional requirements (MVP)
+- Single conversational chat thread combining text + sequential photo
+  upload, on mobile web.
+- Vision-capable AI model reacting to each uploaded photo in the
+  conversation, not just silently storing it.
+- Comps: use one real, simple data source if fast to wire up: OTHERWISE hand-curate/hardcode
+  a small set of comp examples for the handful of demo addresses you
+  know you'll actually use with this audience. Do not block the demo
+  on solving comps data sourcing/licensing.
+- Zestimate/Redfin cross-referencing: SKIP for MVP entirely. Note it
+  as a "coming soon" if you want, but don't build it now.
+- No auth required to use the app.
+- No database beyond whatever's needed to hold a session's
+  conversation/photos in memory or short-term storage — no need for
+  persistent user accounts or history in v1.
+
+## Explicit non-goals for this MVP
+- No live/dynamic "what am I still missing" guided capture — fixed
+  photo list only.
+- No auth handoff or shared login with the main Wayber app.
+- No API integration pushing results into a Wayber transaction
+  record.
+- No real Zestimate/Redfin data.
+- No PWA/native app packaging.
+- Don't over-engineer for scale — this is for ~100 known users, once
+  each.
+
+## Suggested technical direction
+- Next.js on Vercel, matching the rest of the Wayber ecosystem, on
+  its own new Vercel project.
+- Vercel AI SDK + AI Gateway for the vision-capable model calls
+  (don't hardcode a specific provider SDK).
+- Keep the architecture simple: a single conversation flow with a
+  fixed number of steps does not need a heavyweight agent framework
+  for v1 — plain sequential AI SDK calls are enough. Revisit
+  something like Vercel's `eve` framework later if/when the flow
+  becomes dynamic (v2: "what am I still missing" style guidance).
+- Match Wayber's existing visual design system (colors, type, logo)
+  closely enough that it reads as "the same brand" even hosted
+  separately.
+
+## Open questions to flag, but don't let block the MVP
+- Real comps data source/licensing for a future production version.
+- Zestimate/Redfin API access for a future version.
+- What "linked to Wayber" should mean long-term (shared login? just a
+  consistent look + a link back?) — MVP assumes "just a consistent
+  look + a link back."

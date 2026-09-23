@@ -1,26 +1,69 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #e5e5e5;
+  --foreground: #2c2c2c;
+
+  /* Wayber brand palette (matched to wayber.ai) */
+  --color-wayber-forest: #29493c;
+  --color-wayber-forest-dark: #1f3f3d;
+  --color-wayber-forest-deep: #275342;
+  --color-wayber-forest-hover: #1f3d32;
+  --color-wayber-moss: #39795f;
+  --color-wayber-cream: #f7f7d9;
+  --color-wayber-lime: #f5fce1;
+  --color-wayber-ink: #2c2c2c;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-wayber-forest: var(--color-wayber-forest);
+  --color-wayber-forest-dark: var(--color-wayber-forest-dark);
+  --color-wayber-forest-deep: var(--color-wayber-forest-deep);
+  --color-wayber-forest-hover: var(--color-wayber-forest-hover);
+  --color-wayber-moss: var(--color-wayber-moss);
+  --color-wayber-cream: var(--color-wayber-cream);
+  --color-wayber-lime: var(--color-wayber-lime);
+  --color-wayber-ink: var(--color-wayber-ink);
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-inter-tight);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+@keyframes wayber-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.wayber-message-in {
+  animation: wayber-fade-up 0.25s ease-out both;
+}
+
+@keyframes wayber-bounce {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.wayber-typing-dot {
+  animation: wayber-bounce 1.2s ease-in-out infinite;
 }

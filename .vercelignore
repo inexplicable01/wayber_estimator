@@ -1,0 +1,5 @@
+.env
+.env.local
+.env.vercel
+.env.vercel.prod
+scripts
