@@ -35,10 +35,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${interTight.variable} h-full antialiased`}
+      className={`${inter.variable} ${interTight.variable} h-dvh overflow-hidden antialiased`}
     >
-      <body className="min-h-full">
-        <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col bg-wayber-lime/40 sm:my-6 sm:min-h-[calc(100dvh-3rem)] sm:rounded-3xl sm:shadow-2xl sm:overflow-hidden">
+      <body className="h-dvh overflow-hidden">
+        <div className="relative mx-auto flex h-dvh w-full max-w-md flex-col bg-wayber-lime/40 sm:my-6 sm:h-[calc(100dvh-3rem)] sm:rounded-3xl sm:shadow-2xl sm:overflow-hidden">
           {children}
         </div>
       </body>
