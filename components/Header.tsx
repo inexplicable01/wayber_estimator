@@ -6,7 +6,7 @@ export default function Header() {
       <a href="https://www.wayber.ai" className="flex items-center gap-2">
         <Image src="/logo.svg" alt="Wayber" width={28} height={28} priority />
         <span className="font-[family-name:var(--font-heading)] text-base font-semibold text-wayber-forest">
-          Wayber <span className="font-medium text-wayber-moss">Estimate</span>
+          Wayber <span className="font-medium text-wayber-moss">Walkthrough</span>
         </span>
       </a>
       <a

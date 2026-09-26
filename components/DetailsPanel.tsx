@@ -1,5 +1,5 @@
 import type { PhotoStep } from "@/lib/steps";
-import type { EstimateResponse } from "@/lib/types";
+import type { HomeReport } from "@/lib/types";
 
 export interface ConfirmedAddress {
   formattedAddress: string;
@@ -45,16 +45,8 @@ interface Props {
   propertyDetails: PropertyDetails | null;
   steps: PhotoStep[];
   observations: PhotoObservation[];
-  phase: "details" | "photo" | "estimating" | "done";
-  estimate: EstimateResponse | null;
-}
-
-function formatMoney(value: number) {
-  return value.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  });
+  phase: "details" | "photo" | "reporting" | "done";
+  report: HomeReport | null;
 }
 
 export default function DetailsPanel({
@@ -63,7 +55,7 @@ export default function DetailsPanel({
   steps,
   observations,
   phase,
-  estimate,
+  report,
 }: Props) {
   return (
     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-4">
@@ -130,24 +122,21 @@ export default function DetailsPanel({
         </div>
       </div>
 
-      {phase === "estimating" && (
+      {phase === "reporting" && (
         <div className="flex items-center gap-2 rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm font-medium text-wayber-ink shadow-sm">
           <span className="flex items-center gap-1">
             <span className="wayber-typing-dot h-1.5 w-1.5 rounded-full bg-wayber-forest/50 [animation-delay:0s]" />
             <span className="wayber-typing-dot h-1.5 w-1.5 rounded-full bg-wayber-forest/50 [animation-delay:0.15s]" />
             <span className="wayber-typing-dot h-1.5 w-1.5 rounded-full bg-wayber-forest/50 [animation-delay:0.3s]" />
           </span>
-          Crunching your estimate...
+          Putting together your walkthrough report...
         </div>
       )}
 
-      {phase === "done" && estimate && (
+      {phase === "done" && report && (
         <div className="rounded-2xl bg-gradient-to-br from-wayber-forest to-wayber-moss px-4 py-4 text-white shadow-sm">
-          <p className="text-xs font-medium uppercase tracking-wide text-white/70">Estimate ready</p>
-          <p className="mt-1 font-[family-name:var(--font-heading)] text-xl font-bold">
-            {formatMoney(estimate.low)} – {formatMoney(estimate.high)}
-          </p>
-          <p className="mt-1 text-xs text-white/80">See the full breakdown in the Chat tab.</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-white/70">Report ready</p>
+          <p className="mt-1 text-sm text-white/90">See the full walkthrough summary in the Chat tab.</p>
         </div>
       )}
     </div>

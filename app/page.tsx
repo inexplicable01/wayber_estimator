@@ -4,14 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { track } from "@vercel/analytics";
 import Header from "@/components/Header";
 import ChatBubble from "@/components/ChatBubble";
-import ResultsCard from "@/components/ResultsCard";
+import HomeReportCard from "@/components/HomeReportCard";
 import AddressConfirmCard, { type AddressValidationResult } from "@/components/AddressConfirmCard";
 import DetailsPanel, { type ConfirmedAddress } from "@/components/DetailsPanel";
 import { PHOTO_STEPS } from "@/lib/steps";
 import { fileToResizedDataUrl } from "@/lib/image";
-import type { ChatMessage, EstimateResponse } from "@/lib/types";
+import type { ChatMessage, HomeReport } from "@/lib/types";
 
-type Phase = "intro" | "address" | "details" | "photo" | "estimating" | "done";
+type Phase = "intro" | "address" | "details" | "photo" | "reporting" | "done";
 type ConfirmStatus = "closed" | "loading" | "ready" | "error";
 type Tab = "chat" | "details";
 type ValueImpact = "up" | "down" | "neutral";
@@ -37,7 +37,7 @@ export default function Home() {
   const [address, setAddress] = useState("");
   const [addressInput, setAddressInput] = useState("");
   const [observations, setObservations] = useState<PhotoObservation[]>([]);
-  const [estimate, setEstimate] = useState<EstimateResponse | null>(null);
+  const [report, setReport] = useState<HomeReport | null>(null);
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -65,7 +65,7 @@ export default function Home() {
 
   useEffect(() => {
     scrollAnchorRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, estimate]);
+  }, [messages, report]);
 
   function nextId() {
     idCounter.current += 1;
@@ -246,30 +246,24 @@ export default function Home() {
         addMessage({ role: "assistant", text: PHOTO_STEPS[nextIndex].askText });
         setBusy(false);
       } else {
-        setPhase("estimating");
+        setPhase("reporting");
         addMessage({
           role: "assistant",
-          text: "That's everything I need — crunching your estimate against nearby sales now...",
+          text: "That's everything I need — putting together your walkthrough summary now...",
         });
 
-        const estRes = await fetch("/api/estimate", {
+        const reportRes = await fetch("/api/home-report", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            address,
-            photos: newObservations,
-            bedrooms: propertyDetails?.bedrooms,
-            bathrooms: propertyDetails?.bathrooms,
-            sqft: propertyDetails?.sqft,
-          }),
+          body: JSON.stringify({ address, photos: newObservations }),
         });
 
-        const estData: EstimateResponse & { error?: string } = await estRes.json();
-        if (!estRes.ok) throw new Error(estData.error || "Estimate request failed");
-        setEstimate(estData);
+        const reportData: HomeReport & { error?: string } = await reportRes.json();
+        if (!reportRes.ok) throw new Error(reportData.error || "Report request failed");
+        setReport(reportData);
         setPhase("done");
         setBusy(false);
-        track("Estimate Completed");
+        track("Report Completed");
 
         if (leadIdRef.current) {
           fetch(`/api/leads/${leadIdRef.current}`, {
@@ -277,9 +271,7 @@ export default function Home() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               status: "completed",
-              estimateLow: estData.low,
-              estimateHigh: estData.high,
-              conditionSummary: estData.conditionSummary,
+              conditionSummary: reportData.summary,
             }),
           }).catch((err) => console.error("[lead:complete]", err));
         }
@@ -302,7 +294,7 @@ export default function Home() {
     setAddress("");
     setAddressInput("");
     setObservations([]);
-    setEstimate(null);
+    setReport(null);
     setBusy(false);
     setErrorMsg(null);
     setPendingAddress("");
@@ -325,11 +317,11 @@ export default function Home() {
         <Header />
         <main className="mx-auto flex w-full flex-1 flex-col items-center justify-center px-6 pb-10 text-center">
           <h1 className="font-[family-name:var(--font-heading)] text-2xl font-semibold text-wayber-ink">
-            Get your home&apos;s value in minutes
+            See your home through fresh eyes
           </h1>
           <p className="mt-3 max-w-xs text-[15px] leading-relaxed text-wayber-ink/70">
-            Share your address and snap a few quick photos, and I&apos;ll put together a
-            comp-based estimate — takes about 3 minutes.
+            Share your address and snap a few quick photos, and I&apos;ll walk through your home with
+            you — what&apos;s already great, and what&apos;s worth a look — takes about 3 minutes.
           </p>
           <button
             onClick={handleStart}
@@ -383,8 +375,8 @@ export default function Home() {
             propertyDetails={propertyDetails}
             steps={PHOTO_STEPS}
             observations={observations}
-            phase={phase as "details" | "photo" | "estimating" | "done"}
-            estimate={estimate}
+            phase={phase as "details" | "photo" | "reporting" | "done"}
+            report={report}
           />
         ) : (
           <>
@@ -393,7 +385,7 @@ export default function Home() {
             <ChatBubble key={m.id} message={m} />
           ))}
 
-          {phase === "done" && estimate && <ResultsCard estimate={estimate} />}
+          {phase === "done" && report && <HomeReportCard report={report} />}
 
           <div ref={scrollAnchorRef} />
         </div>
@@ -497,9 +489,9 @@ export default function Home() {
             </label>
           )}
 
-          {phase === "estimating" && (
+          {phase === "reporting" && (
             <div className="flex w-full items-center justify-center gap-2 rounded-xl bg-wayber-forest/50 px-4 py-3.5 text-sm font-semibold text-white">
-              Building your estimate...
+              Putting together your report...
             </div>
           )}
 

@@ -17,9 +17,9 @@ const interTight = Inter_Tight({
 });
 
 export const metadata: Metadata = {
-  title: "Wayber Home Estimate",
+  title: "Wayber Home Walkthrough",
   description:
-    "Snap a few photos of your home and get an instant, AI-powered comparative market estimate from Wayber.",
+    "Snap a few photos of your home and get an AI-powered walkthrough — what's already great, and what's worth a look — from Wayber.",
   icons: {
     icon: "/favicon.ico",
   },

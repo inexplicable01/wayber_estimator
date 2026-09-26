@@ -6,20 +6,8 @@ export interface ChatMessage {
   pending?: boolean;
 }
 
-export interface EstimateResponse {
-  low: number;
-  high: number;
-  conditionSummary: string;
-  explanation: string;
-  highlights: string[];
-  subjectSqft: number;
-  comps: {
-    address: string;
-    soldPrice: number;
-    soldWeeksAgo: number;
-    beds: number;
-    baths: number;
-    sqft: number;
-    distanceMiles: number;
-  }[];
+export interface HomeReport {
+  summary: string;
+  positives: string[];
+  improvements: string[];
 }
