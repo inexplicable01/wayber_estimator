@@ -11,7 +11,7 @@ import { PHOTO_STEPS } from "@/lib/steps";
 import { fileToResizedDataUrl } from "@/lib/image";
 import type { ChatMessage, HomeReport } from "@/lib/types";
 
-type Phase = "intro" | "address" | "details" | "photo" | "reporting" | "done";
+type Phase = "intro" | "address" | "details" | "photo" | "more" | "reporting" | "done";
 type ConfirmStatus = "closed" | "loading" | "ready" | "error";
 type Tab = "chat" | "details";
 type ValueImpact = "up" | "down" | "neutral";
@@ -25,6 +25,11 @@ interface PhotoObservation {
 
 const ADDRESS_PROMPT = "Great — what's the property address?";
 const DETAILS_PROMPT = "Got it. Now the basics — how many bedrooms, bathrooms, and roughly how many square feet?";
+const MORE_PHOTOS_PROMPT =
+  "That covers the basics! Want to add any more photos before I put together your report? Sharing " +
+  "both what's great and what could use work — not just the best angles — helps me give you the " +
+  "most honest, complete picture.";
+const MORE_PHOTOS_FOLLOWUP = "Got it. Want to add another, or finish up?";
 
 function initialMessages(): ChatMessage[] {
   return [];
@@ -61,8 +66,10 @@ export default function Home() {
     text: string;
     valueImpact: ValueImpact;
   } | null>(null);
+  const [extraPhotoCount, setExtraPhotoCount] = useState(0);
 
   const idCounter = useRef(0);
+  const extraFileInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollAnchorRef = useRef<HTMLDivElement>(null);
   // Lead capture is best-effort and silent — never blocks or surfaces
@@ -187,65 +194,38 @@ export default function Home() {
     }
   }
 
-  async function acceptPhoto(dataUrl: string, text: string, valueImpact: ValueImpact) {
-    const step = PHOTO_STEPS[photoIndex];
+  function saveObservation(dataUrl: string, text: string, valueImpact: ValueImpact, stepLabel: string) {
     const newObservations = [
       ...observations,
-      { stepLabel: step.label, observation: text.trim(), imageUrl: dataUrl, valueImpact },
+      { stepLabel, observation: text.trim(), imageUrl: dataUrl, valueImpact },
     ];
     setObservations(newObservations);
-    track("Photo Step Completed", { step: step.label, index: photoIndex });
+    track("Photo Step Completed", { step: stepLabel });
 
     if (leadIdRef.current) {
       fetch(`/api/leads/${leadIdRef.current}/photos`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          stepLabel: step.label,
-          observation: text.trim(),
-          valueImpact,
-          imageDataUrl: dataUrl,
-        }),
+        body: JSON.stringify({ stepLabel, observation: text.trim(), valueImpact, imageDataUrl: dataUrl }),
       }).catch((err) => console.error("[lead:photo]", err));
     }
+
+    return newObservations;
+  }
+
+  function acceptCorePhoto(dataUrl: string, text: string, valueImpact: ValueImpact) {
+    const step = PHOTO_STEPS[photoIndex];
+    saveObservation(dataUrl, text, valueImpact, step.label);
 
     const nextIndex = photoIndex + 1;
     if (nextIndex < PHOTO_STEPS.length) {
       setPhotoIndex(nextIndex);
       addMessage({ role: "assistant", text: PHOTO_STEPS[nextIndex].askText });
-      setBusy(false);
-      return;
+    } else {
+      setPhase("more");
+      addMessage({ role: "assistant", text: MORE_PHOTOS_PROMPT });
     }
-
-    setPhase("reporting");
-    addMessage({
-      role: "assistant",
-      text: "That's everything I need — putting together your walkthrough summary now...",
-    });
-
-    const reportRes = await fetch("/api/home-report", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ address, photos: newObservations }),
-    });
-
-    const reportData: HomeReport & { error?: string } = await reportRes.json();
-    if (!reportRes.ok) throw new Error(reportData.error || "Report request failed");
-    setReport(reportData);
-    setPhase("done");
     setBusy(false);
-    track("Report Completed");
-
-    if (leadIdRef.current) {
-      fetch(`/api/leads/${leadIdRef.current}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: "completed",
-          conditionSummary: reportData.summary,
-        }),
-      }).catch((err) => console.error("[lead:complete]", err));
-    }
   }
 
   async function handlePhotoSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -293,7 +273,7 @@ export default function Home() {
       setRetakeNeeded(false);
       setPendingMismatch(null);
 
-      await acceptPhoto(dataUrl, full, valueImpact);
+      acceptCorePhoto(dataUrl, full, valueImpact);
     } catch (err) {
       console.error(err);
       if (pendingId) {
@@ -305,18 +285,97 @@ export default function Home() {
     }
   }
 
-  async function handleUseAnywayPhoto() {
+  function handleUseAnywayPhoto() {
     if (!pendingMismatch) return;
     const { dataUrl, text, valueImpact } = pendingMismatch;
     setRetakeNeeded(false);
     setPendingMismatch(null);
     setBusy(true);
     setErrorMsg(null);
+    acceptCorePhoto(dataUrl, text, valueImpact);
+  }
+
+  async function handleExtraPhotoSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || busy) return;
+
+    setBusy(true);
+    setErrorMsg(null);
+    let pendingId: string | null = null;
+
     try {
-      await acceptPhoto(dataUrl, text, valueImpact);
+      const dataUrl = await fileToResizedDataUrl(file);
+      addMessage({ role: "user", imageUrl: dataUrl });
+      pendingId = addMessage({ role: "assistant", pending: true });
+
+      const res = await fetch("/api/photo-reaction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          address,
+          stepLabel: "another feature or area of the home the homeowner chose to show",
+          imageDataUrl: dataUrl,
+        }),
+      });
+
+      const data: { text?: string; valueImpact?: ValueImpact; error?: string } = await res.json();
+      if (!res.ok || !data.text) {
+        throw new Error(data.error || "Photo reaction request failed");
+      }
+
+      updateMessage(pendingId, { pending: false, text: data.text });
+      saveObservation(dataUrl, data.text, data.valueImpact ?? "neutral", `Extra photo ${extraPhotoCount + 1}`);
+      setExtraPhotoCount((c) => c + 1);
+      addMessage({ role: "assistant", text: MORE_PHOTOS_FOLLOWUP });
+      setBusy(false);
     } catch (err) {
       console.error(err);
+      if (pendingId) {
+        setMessages((prev) => prev.filter((m) => m.id !== pendingId));
+      }
       const message = err instanceof Error ? err.message : "Something went wrong on that last step — mind trying again?";
+      setErrorMsg(message);
+      setBusy(false);
+    }
+  }
+
+  async function handleFinishPhotos() {
+    setBusy(true);
+    setErrorMsg(null);
+    setPhase("reporting");
+    addMessage({
+      role: "assistant",
+      text: "That's everything I need — putting together your walkthrough summary now...",
+    });
+
+    try {
+      const reportRes = await fetch("/api/home-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address, photos: observations }),
+      });
+
+      const reportData: HomeReport & { error?: string } = await reportRes.json();
+      if (!reportRes.ok) throw new Error(reportData.error || "Report request failed");
+      setReport(reportData);
+      setPhase("done");
+      setBusy(false);
+      track("Report Completed");
+
+      if (leadIdRef.current) {
+        fetch(`/api/leads/${leadIdRef.current}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: "completed",
+            conditionSummary: reportData.summary,
+          }),
+        }).catch((err) => console.error("[lead:complete]", err));
+      }
+    } catch (err) {
+      console.error(err);
+      const message = err instanceof Error ? err.message : "Something went wrong putting the report together.";
       setErrorMsg(message);
       setBusy(false);
     }
@@ -343,6 +402,7 @@ export default function Home() {
     setPropertyDetails(null);
     setRetakeNeeded(false);
     setPendingMismatch(null);
+    setExtraPhotoCount(0);
     leadIdRef.current = null;
   }
 
@@ -412,7 +472,7 @@ export default function Home() {
             propertyDetails={propertyDetails}
             steps={PHOTO_STEPS}
             observations={observations}
-            phase={phase as "details" | "photo" | "reporting" | "done"}
+            phase={phase as "details" | "photo" | "more" | "reporting" | "done"}
             report={report}
           />
         ) : (
@@ -548,6 +608,34 @@ export default function Home() {
                 </button>
               )}
             </>
+          )}
+
+          {phase === "more" && (
+            <div className="flex flex-col gap-2">
+              <label
+                className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition ${
+                  busy ? "bg-wayber-forest/50" : "bg-wayber-forest hover:bg-wayber-forest-hover"
+                }`}
+              >
+                {busy ? "One sec..." : "📷 Add another photo"}
+                <input
+                  ref={extraFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  disabled={busy}
+                  onChange={handleExtraPhotoSelected}
+                />
+              </label>
+              <button
+                onClick={handleFinishPhotos}
+                disabled={busy}
+                className="w-full rounded-xl border border-wayber-forest/30 bg-white px-4 py-3 text-sm font-semibold text-wayber-forest shadow-sm transition hover:bg-wayber-lime/60 disabled:opacity-40"
+              >
+                ✅ Finish — see my report
+              </button>
+            </div>
           )}
 
           {phase === "reporting" && (

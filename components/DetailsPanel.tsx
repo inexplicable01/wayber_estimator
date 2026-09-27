@@ -45,7 +45,7 @@ interface Props {
   propertyDetails: PropertyDetails | null;
   steps: PhotoStep[];
   observations: PhotoObservation[];
-  phase: "details" | "photo" | "reporting" | "done";
+  phase: "details" | "photo" | "more" | "reporting" | "done";
   report: HomeReport | null;
 }
 
@@ -57,6 +57,9 @@ export default function DetailsPanel({
   phase,
   report,
 }: Props) {
+  const coreLabels = new Set(steps.map((s) => s.label));
+  const extraObservations = observations.filter((o) => !coreLabels.has(o.stepLabel));
+
   return (
     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-4">
       <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
@@ -121,6 +124,32 @@ export default function DetailsPanel({
           })}
         </div>
       </div>
+
+      {extraObservations.length > 0 && (
+        <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm">
+          <p className="border-b border-black/5 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-black/40">
+            Extra photos
+          </p>
+          <div className="divide-y divide-black/5">
+            {extraObservations.map((o, i) => (
+              <div key={i} className="flex gap-3 px-4 py-3">
+                <img
+                  src={o.imageUrl}
+                  alt={o.stepLabel}
+                  className="h-14 w-14 shrink-0 rounded-lg object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <p className="text-sm font-semibold text-wayber-ink">✓ {o.stepLabel}</p>
+                    <ValueImpactBadge valueImpact={o.valueImpact} />
+                  </div>
+                  <p className="mt-0.5 text-sm text-wayber-ink/70">{o.observation}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {phase === "reporting" && (
         <div className="flex items-center gap-2 rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm font-medium text-wayber-ink shadow-sm">
