@@ -56,6 +56,11 @@ export default function Home() {
     sqft: number;
   } | null>(null);
   const [retakeNeeded, setRetakeNeeded] = useState(false);
+  const [pendingMismatch, setPendingMismatch] = useState<{
+    dataUrl: string;
+    text: string;
+    valueImpact: ValueImpact;
+  } | null>(null);
 
   const idCounter = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -182,6 +187,67 @@ export default function Home() {
     }
   }
 
+  async function acceptPhoto(dataUrl: string, text: string, valueImpact: ValueImpact) {
+    const step = PHOTO_STEPS[photoIndex];
+    const newObservations = [
+      ...observations,
+      { stepLabel: step.label, observation: text.trim(), imageUrl: dataUrl, valueImpact },
+    ];
+    setObservations(newObservations);
+    track("Photo Step Completed", { step: step.label, index: photoIndex });
+
+    if (leadIdRef.current) {
+      fetch(`/api/leads/${leadIdRef.current}/photos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stepLabel: step.label,
+          observation: text.trim(),
+          valueImpact,
+          imageDataUrl: dataUrl,
+        }),
+      }).catch((err) => console.error("[lead:photo]", err));
+    }
+
+    const nextIndex = photoIndex + 1;
+    if (nextIndex < PHOTO_STEPS.length) {
+      setPhotoIndex(nextIndex);
+      addMessage({ role: "assistant", text: PHOTO_STEPS[nextIndex].askText });
+      setBusy(false);
+      return;
+    }
+
+    setPhase("reporting");
+    addMessage({
+      role: "assistant",
+      text: "That's everything I need — putting together your walkthrough summary now...",
+    });
+
+    const reportRes = await fetch("/api/home-report", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address, photos: newObservations }),
+    });
+
+    const reportData: HomeReport & { error?: string } = await reportRes.json();
+    if (!reportRes.ok) throw new Error(reportData.error || "Report request failed");
+    setReport(reportData);
+    setPhase("done");
+    setBusy(false);
+    track("Report Completed");
+
+    if (leadIdRef.current) {
+      fetch(`/api/leads/${leadIdRef.current}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "completed",
+          conditionSummary: reportData.summary,
+        }),
+      }).catch((err) => console.error("[lead:complete]", err));
+    }
+  }
+
   async function handlePhotoSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -216,80 +282,40 @@ export default function Home() {
 
       const full = data.text;
       updateMessage(pendingId, { pending: false, text: full });
+      const valueImpact = data.valueImpact ?? "neutral";
 
       if (data.matchesStep === false) {
+        setPendingMismatch({ dataUrl, text: full, valueImpact });
         setRetakeNeeded(true);
         setBusy(false);
         return;
       }
       setRetakeNeeded(false);
+      setPendingMismatch(null);
 
-      const newObservations = [
-        ...observations,
-        {
-          stepLabel: step.label,
-          observation: full.trim(),
-          imageUrl: dataUrl,
-          valueImpact: data.valueImpact ?? "neutral",
-        },
-      ];
-      setObservations(newObservations);
-      track("Photo Step Completed", { step: step.label, index: photoIndex });
-
-      if (leadIdRef.current) {
-        fetch(`/api/leads/${leadIdRef.current}/photos`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            stepLabel: step.label,
-            observation: full.trim(),
-            valueImpact: data.valueImpact ?? "neutral",
-            imageDataUrl: dataUrl,
-          }),
-        }).catch((err) => console.error("[lead:photo]", err));
-      }
-
-      const nextIndex = photoIndex + 1;
-      if (nextIndex < PHOTO_STEPS.length) {
-        setPhotoIndex(nextIndex);
-        addMessage({ role: "assistant", text: PHOTO_STEPS[nextIndex].askText });
-        setBusy(false);
-      } else {
-        setPhase("reporting");
-        addMessage({
-          role: "assistant",
-          text: "That's everything I need — putting together your walkthrough summary now...",
-        });
-
-        const reportRes = await fetch("/api/home-report", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ address, photos: newObservations }),
-        });
-
-        const reportData: HomeReport & { error?: string } = await reportRes.json();
-        if (!reportRes.ok) throw new Error(reportData.error || "Report request failed");
-        setReport(reportData);
-        setPhase("done");
-        setBusy(false);
-        track("Report Completed");
-
-        if (leadIdRef.current) {
-          fetch(`/api/leads/${leadIdRef.current}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              status: "completed",
-              conditionSummary: reportData.summary,
-            }),
-          }).catch((err) => console.error("[lead:complete]", err));
-        }
-      }
+      await acceptPhoto(dataUrl, full, valueImpact);
     } catch (err) {
       console.error(err);
       if (pendingId) {
         setMessages((prev) => prev.filter((m) => m.id !== pendingId));
       }
+      const message = err instanceof Error ? err.message : "Something went wrong on that last step — mind trying again?";
+      setErrorMsg(message);
+      setBusy(false);
+    }
+  }
+
+  async function handleUseAnywayPhoto() {
+    if (!pendingMismatch) return;
+    const { dataUrl, text, valueImpact } = pendingMismatch;
+    setRetakeNeeded(false);
+    setPendingMismatch(null);
+    setBusy(true);
+    setErrorMsg(null);
+    try {
+      await acceptPhoto(dataUrl, text, valueImpact);
+    } catch (err) {
+      console.error(err);
       const message = err instanceof Error ? err.message : "Something went wrong on that last step — mind trying again?";
       setErrorMsg(message);
       setBusy(false);
@@ -316,6 +342,7 @@ export default function Home() {
     setSqftInput("");
     setPropertyDetails(null);
     setRetakeNeeded(false);
+    setPendingMismatch(null);
     leadIdRef.current = null;
   }
 
@@ -511,6 +538,15 @@ export default function Home() {
                   onChange={handlePhotoSelected}
                 />
               </label>
+              {retakeNeeded && (
+                <button
+                  onClick={handleUseAnywayPhoto}
+                  disabled={busy}
+                  className="mt-2 w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm font-medium text-wayber-ink/70 shadow-sm transition hover:bg-black/5 disabled:opacity-40"
+                >
+                  Use this photo anyway
+                </button>
+              )}
             </>
           )}
 
