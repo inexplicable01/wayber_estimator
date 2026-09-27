@@ -36,16 +36,16 @@ export default function HomeReportCard({ report }: { report: HomeReport }) {
 
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-black/40">
-            Worth a look
+            Where you can add value
           </p>
           <ul className="space-y-2">
             {report.improvements.map((imp, i) => (
-              <li
-                key={i}
-                className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900"
-              >
-                <span className="mt-0.5 text-amber-600">•</span>
-                {imp}
+              <li key={i} className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                <p className="flex items-start gap-2 font-semibold">
+                  <span className="mt-0.5 text-amber-600">•</span>
+                  {imp.item}
+                </p>
+                <p className="mt-1 pl-4 text-amber-800/80">{imp.whyItMatters}</p>
               </li>
             ))}
           </ul>

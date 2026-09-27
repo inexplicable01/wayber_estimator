@@ -9,5 +9,5 @@ export interface ChatMessage {
 export interface HomeReport {
   summary: string;
   positives: string[];
-  improvements: string[];
+  improvements: { item: string; whyItMatters: string }[];
 }

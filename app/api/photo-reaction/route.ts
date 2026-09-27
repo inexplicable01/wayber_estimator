@@ -20,6 +20,12 @@ const reactionSchema = z.object({
       "Compared to a typical home, does this room/feature's condition likely add value (up), " +
         "subtract value (down, e.g. dated or needing work), or is it roughly average (neutral)?",
     ),
+  matchesStep: z
+    .boolean()
+    .describe(
+      "True if the photo actually shows what was asked for. False if it clearly shows something " +
+        "else (e.g. a bedroom when the primary bathroom was requested) or nothing recognizable at all.",
+    ),
 });
 
 export async function POST(req: Request) {
@@ -56,7 +62,11 @@ export async function POST(req: Request) {
       return Response.json({ error: "Model returned an empty reaction" }, { status: 502 });
     }
 
-    return Response.json({ text: output.reaction.trim(), valueImpact: output.valueImpact });
+    return Response.json({
+      text: output.reaction.trim(),
+      valueImpact: output.valueImpact,
+      matchesStep: output.matchesStep,
+    });
   } catch (err) {
     console.error("[photo-reaction]", err);
     const message = err instanceof Error ? err.message : "Unknown error calling the vision model";

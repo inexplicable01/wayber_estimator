@@ -29,12 +29,25 @@ const reportSchema = z.object({
       "Specific things already working in the home's favor, pulled from the photos. Each under 12 words.",
     ),
   improvements: z
-    .array(z.string())
+    .array(
+      z.object({
+        item: z
+          .string()
+          .describe("The specific thing worth addressing or updating, pulled from the photos. Under 12 words."),
+        whyItMatters: z
+          .string()
+          .describe(
+            "1 short sentence on why this matters for how the home shows or appeals to a buyer " +
+              "(e.g. first impressions, how noticeable it is, how it compares to a typical updated home). " +
+              "No price, value, or dollar amounts — this is about buyer perception, not appraisal.",
+          ),
+      }),
+    )
     .min(1)
     .max(6)
     .describe(
-      "Specific, actionable things worth addressing or updating, pulled from the photos. Each under 12 " +
-        "words. If nothing notable stands out, say the space looks well-maintained instead of inventing an issue.",
+      "If nothing notable stands out, return one entry noting the space looks well-maintained instead " +
+        "of inventing an issue.",
     ),
 });
 
@@ -53,8 +66,10 @@ export async function POST(req: Request) {
       instructions:
         "You are Wayber's home walkthrough assistant, writing a wrap-up for a homeowner who just " +
         "did a guided photo walkthrough of their own home. You're given your own earlier notes on each " +
-        "photo. Do not mention price, value, or dollar amounts anywhere — this is a condition and " +
-        "presentation snapshot, not an appraisal. Be specific and plain-spoken, never salesy. No markdown.",
+        "photo. Never mention price, value, or dollar amounts — this is a condition and presentation " +
+        "snapshot, not an appraisal. For each improvement, explain why it matters for how the home " +
+        "shows to a buyer (first impressions, how noticeable it is), like a sharp-eyed agent would, " +
+        "without ever attaching a number to it. Be specific and plain-spoken, never salesy. No markdown.",
       output: Output.object({ schema: reportSchema }),
       prompt: `Address: ${address}\n\nPhoto notes from this walkthrough:\n${photosSummary}`,
     });

@@ -55,6 +55,7 @@ export default function Home() {
     bathrooms: number;
     sqft: number;
   } | null>(null);
+  const [retakeNeeded, setRetakeNeeded] = useState(false);
 
   const idCounter = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -206,7 +207,8 @@ export default function Home() {
         }),
       });
 
-      const data: { text?: string; valueImpact?: ValueImpact; error?: string } = await res.json();
+      const data: { text?: string; valueImpact?: ValueImpact; matchesStep?: boolean; error?: string } =
+        await res.json();
 
       if (!res.ok || !data.text) {
         throw new Error(data.error || "Photo reaction request failed");
@@ -214,6 +216,13 @@ export default function Home() {
 
       const full = data.text;
       updateMessage(pendingId, { pending: false, text: full });
+
+      if (data.matchesStep === false) {
+        setRetakeNeeded(true);
+        setBusy(false);
+        return;
+      }
+      setRetakeNeeded(false);
 
       const newObservations = [
         ...observations,
@@ -306,6 +315,7 @@ export default function Home() {
     setBathroomsInput("");
     setSqftInput("");
     setPropertyDetails(null);
+    setRetakeNeeded(false);
     leadIdRef.current = null;
   }
 
@@ -471,22 +481,37 @@ export default function Home() {
           )}
 
           {phase === "photo" && currentStep && (
-            <label
-              className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition ${
-                busy ? "bg-wayber-forest/50" : "bg-wayber-forest hover:bg-wayber-forest-hover"
-              }`}
-            >
-              {busy ? "One sec..." : `📷 Take photo: ${currentStep.helperText}`}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                disabled={busy}
-                onChange={handlePhotoSelected}
-              />
-            </label>
+            <>
+              {retakeNeeded && (
+                <p className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                  That doesn&apos;t look like {currentStep.helperText.toLowerCase()} — give it another shot.
+                </p>
+              )}
+              <label
+                className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition ${
+                  busy
+                    ? "bg-wayber-forest/50"
+                    : retakeNeeded
+                      ? "bg-amber-600 hover:bg-amber-700"
+                      : "bg-wayber-forest hover:bg-wayber-forest-hover"
+                }`}
+              >
+                {busy
+                  ? "One sec..."
+                  : retakeNeeded
+                    ? `🔄 Retake photo: ${currentStep.helperText}`
+                    : `📷 Take photo: ${currentStep.helperText}`}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  disabled={busy}
+                  onChange={handlePhotoSelected}
+                />
+              </label>
+            </>
           )}
 
           {phase === "reporting" && (
